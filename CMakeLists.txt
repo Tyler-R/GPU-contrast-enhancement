@@ -17,16 +17,14 @@ message(STATUS ${CUDA_TOOLKIT_ROOT_DIR})
 # set(CMAKE_MODULE_PATH "/usr/share/cmake/Modules" ${CMAKE_MODULE_PATH})
 
 set(CPPSRCS
-   main.cpp
    histogram-equalization.cpp
    contrast-enhancement.cpp
 )
 
 set(CUDASRCS
-   # 1.cu
-   # 2.cu
-   # etc 
+   main.cu
+   histogram-equalization.cu
+   contrast-enhancement.cu
 )
 
 CUDA_ADD_EXECUTABLE(${PROJECT_NAME} ${CUDASRCS} ${CPPSRCS})
-
