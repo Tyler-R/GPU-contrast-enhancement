@@ -10,6 +10,7 @@
 #include <helper_timer.h>
 
 #include "hist-equ.h"
+#include "hist-equ.cuh"
 
 void run_cpu_color_test(PPM_IMG img_in);
 void run_gpu_color_test(PPM_IMG img_in);
@@ -51,8 +52,22 @@ void run_gpu_color_test(PPM_IMG img_in)
 
 void run_gpu_gray_test(PGM_IMG img_in)
 {
+    StopWatchInterface *timer=NULL;
     printf("Starting GPU processing...\n");
-    //TODO: run your GPU implementation here
+
+    PGM_IMG img_output_buffer;
+
+    sdkCreateTimer(&timer);
+    sdkStartTimer(&timer);
+
+    // perform the enhancement
+    img_output_buffer = gpu_contrast_enhancement_gray_image(img_in);
+
+    sdkStopTimer(&timer);
+    printf("Processing time: %f (ms) for gray enhancement on GPU\n", sdkGetTimerValue(&timer));
+    sdkDeleteTimer(&timer);
+
+
     img_in = img_in; // To avoid warning...
 }
 
@@ -112,7 +127,7 @@ void run_cpu_gray_test(PGM_IMG img_in)
     img_obuf = contrast_enhancement_g(img_in);
 
     sdkStopTimer(&timer);
-    printf("Processing time: %f (ms)\n", sdkGetTimerValue(&timer));
+    printf("Processing time: %f (ms) for gray enhancement on CPU\n", sdkGetTimerValue(&timer));
     sdkDeleteTimer(&timer);
 
     write_pgm(img_obuf, "out.pgm");
