@@ -2,26 +2,35 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "hist-equ.h"
 
-__global__ zero_out_array(int *output_array) {
+// CUDA Runtime
+#include <cuda_runtime.h>
+// Utility and system includes
+#include <helper_cuda.h>
+
+#include "hist-equ.cuh"
+
+__global__ void zero_out_array(int *output_array) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x - 1;
-  output[index] = 0;
+  output_array[index] = 0;
 }
 
 void gpu_make_histogram(int *histogram_output, unsigned char *img_in, int img_size, int nbr_bin){
 
 
-    // make sure nbr_bin is a multiple of 256
+    int number_of_blocks = (int) (nbr_bin / 256);
+
+    // make sure number of blocks is a multiple of 256
     assert((nbr_bin % 256) == 0);
-    assert(nbr_bin / 256 > 0);
-    zero_out_array<<<nbr_bin / 256, nbr_bin>>>(histogram_output);
+    assert(number_of_blocks > 0);
+
+    zero_out_array<<<number_of_blocks, nbr_bin>>>(histogram_output);
 
     for (int i = 0; i < img_size; i ++){
         histogram_output[img_in[i]] ++;
     }
 
-    cuda_free();
+    //cuda_free();
 }
 
 void gpu_histogram_equalization(unsigned char * img_out, unsigned char * img_in,
