@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdint.h>
 
 // CUDA Runtime
 #include <cuda_runtime.h>
@@ -10,24 +11,31 @@
 
 #include "hist-equ.cuh"
 
+__global__ convert_rgb_to_yuv() {
+
+}
+
 //Convert RGB to YUV, all components in [0, 255]
-YUV_IMG gpu_rgb2yuv(PPM_IMG img_in)
-{
-    YUV_IMG img_out;
+YUV_IMG gpu_rgb2yuv(PPM_IMG image_input) {
+    YUV_IMG image_output;
     int i;//, j;
     unsigned char r, g, b;
     unsigned char y, cb, cr;
 
-    img_out.w = img_in.w;
-    img_out.h = img_in.h;
-    img_out.img_y = (unsigned char *)malloc(sizeof(unsigned char)*img_out.w*img_out.h);
-    img_out.img_u = (unsigned char *)malloc(sizeof(unsigned char)*img_out.w*img_out.h);
-    img_out.img_v = (unsigned char *)malloc(sizeof(unsigned char)*img_out.w*img_out.h);
+    image_output.w = image_input.w;
+    image_output.h = image_input.h;
 
-    for(i = 0; i < img_out.w*img_out.h; i ++){
-        r = img_in.img_r[i];
-        g = img_in.img_g[i];
-        b = img_in.img_b[i];
+    int64_t image_size = image_output.w * image_output.h;
+
+    img_out.img_y = (unsigned char *)malloc(sizeof(unsigned char) * image_size);
+    img_out.img_u = (unsigned char *)malloc(sizeof(unsigned char) * image_size);
+    img_out.img_v = (unsigned char *)malloc(sizeof(unsigned char) * image_size);
+
+
+    for(i = 0; i < image_size; i ++){
+        r = image_input.img_r[i];
+        g = image_input.img_g[i];
+        b = image_input.img_b[i];
 
         y  = (unsigned char)( 0.299*r + 0.587*g +  0.114*b);
         cb = (unsigned char)(-0.169*r - 0.331*g +  0.499*b + 128);
@@ -41,44 +49,74 @@ YUV_IMG gpu_rgb2yuv(PPM_IMG img_in)
     return img_out;
 }
 
-unsigned char clip_rgb(int x)
-{
-    if(x > 255)
-        return 255;
-    if(x < 0)
-        return 0;
+__global__ void convert_yuv_to_rgb(unsigned char *red, unsigned char *green, unsigned char *blue,
+                                   unsigned char *img_y, unsigned char *img_u, unsigned char *img_v) {
 
-    return (unsigned char)x;
+    int y   = img_y[index];
+    int cb  = img_u[index] - 128;
+    int cr  = img_v[index] - 128;
+
+    int temp_red    = (int)(y + 1.402 * cr);
+    int temp_green  = (int)(y - 0.344 * cb - 0.714 * cr);
+    int temp_blue   = (int)(y + 1.772 * cb);
+
+    red[i] = clamp(temp_red, 0, 255);
+    green[i] = clamp(temp_green, 0, 255);
+    blue[i] = clamp(temp_blue, 0, 255);
+
 }
 
 //Convert YUV to RGB, all components in [0, 255]
-PPM_IMG gpu_yuv2rgb(YUV_IMG img_in)
-{
-    PPM_IMG img_out;
+PPM_IMG gpu_yuv2rgb(YUV_IMG yuv_image_input) {
+    PPM_IMG color_image_output;
     int i;
-    int  rt,gt,bt;
+    int rt,gt,bt;
     int y, cb, cr;
 
 
-    img_out.w = img_in.w;
-    img_out.h = img_in.h;
-    img_out.img_r = (unsigned char *)malloc(sizeof(unsigned char)*img_out.w*img_out.h);
-    img_out.img_g = (unsigned char *)malloc(sizeof(unsigned char)*img_out.w*img_out.h);
-    img_out.img_b = (unsigned char *)malloc(sizeof(unsigned char)*img_out.w*img_out.h);
+    color_image_output.w = yuv_image_input.w;
+    color_image_output.h = yuv_image_input.h;
 
-    for(i = 0; i < img_out.w*img_out.h; i ++){
-        y  = (int)img_in.img_y[i];
-        cb = (int)img_in.img_u[i] - 128;
-        cr = (int)img_in.img_v[i] - 128;
+    int64_t image_size = color_image_output.w * color_image_output.h
 
-        rt  = (int)( y + 1.402*cr);
-        gt  = (int)( y - 0.344*cb - 0.714*cr);
-        bt  = (int)( y + 1.772*cb);
+    img_out.img_r = (unsigned char *)malloc(sizeof(unsigned char) * image_size);
+    img_out.img_g = (unsigned char *)malloc(sizeof(unsigned char) * image_size);
+    img_out.img_b = (unsigned char *)malloc(sizeof(unsigned char) * image_size);
 
-        img_out.img_r[i] = clip_rgb(rt);
-        img_out.img_g[i] = clip_rgb(gt);
-        img_out.img_b[i] = clip_rgb(bt);
-    }
+    unsigned char *gpu_red;
+    unsigned char *gpu_green;
+    unsigned char *gpu_blue;
 
-    return img_out;
+    unsigned char *gpu_y;
+    unsigned char *gpu_u;
+    unsigned char *gpu_v;
+
+    cudaMalloc(&gpu_red, sizeof(unsigned char) * image_size);
+    cudaMalloc(&gpu_green, sizeof(unsigned char) * image_size);
+    cudaMalloc(&gpu_blue, sizeof(unsigned char) * image_size);
+
+    cudaMalloc(&gpu_y, sizeof(unsigned char) * image_size);
+    cudaMalloc(&gpu_u, sizeof(unsigned char) * image_size);
+    cudaMalloc(&gpu_v, sizeof(unsigned char) * image_size);
+
+    cudaMemcpy(gpu_y, yuv_image_input.img_y, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_u, yuv_image_input.img_u, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_v, yuv_image_input.img_v, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
+
+    convert_yuv_to_rgb<<<1,1>>>(gpu_red, gpu_green, gpu_blue, gpu_y, gpu_u, gpu_v);
+
+    cudaMemcpy(color_image_output.img_r, gpu_red, sizeof(unsigned char) * image_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(color_image_output.img_g, gpu_green, sizeof(unsigned char) * image_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(color_image_output.img_b, gpu_blue, sizeof(unsigned char) * image_size, cudaMemcpyDeviceToHost);
+
+    cudaFree(gpu_red);
+    cudaFree(gpu_green);
+    cudaFree(gpu_blue);
+
+    cudaFree(gpu_y);
+    cudaFree(gpu_u);
+    cudaFree(gpu_v);
+
+
+    return color_image_output;
 }
