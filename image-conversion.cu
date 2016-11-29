@@ -57,8 +57,10 @@ YUV_IMG gpu_rgb2yuv(PPM_IMG color_image_input) {
     cudaMemcpy(gpu_green, color_image_input.img_g, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
     cudaMemcpy(gpu_blue, color_image_input.img_b, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
 
-    int block_size = 1;
-    int threads_per_block = 1;
+    int block_size = image_size / 256;
+    int threads_per_block = 256;
+    assert(image_size % 256 == 0);
+
     convert_rgb_to_yuv<<<block_size, threads_per_block>>>(gpu_y, gpu_u, gpu_v, gpu_red, gpu_green, gpu_blue);
 
     cudaMemcpy(yuv_image_output.img_y, gpu_y, sizeof(unsigned char) * image_size, cudaMemcpyDeviceToHost);
@@ -133,8 +135,10 @@ PPM_IMG gpu_yuv2rgb(YUV_IMG yuv_image_input) {
     cudaMemcpy(gpu_u, yuv_image_input.img_u, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
     cudaMemcpy(gpu_v, yuv_image_input.img_v, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
 
-    int block_size = 1;
-    int threads_per_block = 1;
+    int block_size = image_size / 256;
+    int threads_per_block = 256;
+    assert(image_size % 256 == 0);
+
     convert_yuv_to_rgb<<<block_size, threads_per_block>>>(gpu_red, gpu_green, gpu_blue, gpu_y, gpu_u, gpu_v);
 
     cudaMemcpy(color_image_output.img_r, gpu_red, sizeof(unsigned char) * image_size, cudaMemcpyDeviceToHost);
