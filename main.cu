@@ -164,6 +164,9 @@ PPM_IMG read_ppm(const char * path){
     }
     /*Skip the magic number*/
     fscanf(in_file, "%s", sbuf);
+    fscanf(in_file, "%d",&result.w);
+    fscanf(in_file, "%d",&result.h);
+    fscanf(in_file, "%d\n",&v_max);
 
     printf("Image size: %d x %d\n", result.w, result.h);
 
