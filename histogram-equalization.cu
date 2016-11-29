@@ -33,11 +33,13 @@ void gpu_make_histogram(int *histogram_output, unsigned char *image_input, int i
     cudaMemcpy(gpu_image_input, image_input, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
 
 
-    int number_of_blocks = (int) (histogram_size / 256);
+    int number_of_blocks = image_size / histogram_size;
+    int threads_per_block = histogram_size;
 
     // make sure number of blocks is a multiple of 256
     assert((histogram_size % 256) == 0);
     assert(number_of_blocks > 0);
+    assert(image_size % histogram_size == 0);
 
     make_histogram<<<number_of_blocks, histogram_size>>>(gpu_histogram_output, gpu_image_input);
 
