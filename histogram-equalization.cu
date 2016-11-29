@@ -10,7 +10,10 @@
 
 #include "hist-equ.cuh"
 
-__global__ void zero_out_buffer(int *output_buffer) {
+// consistent cut = send event part of cut but receive does not have to be part of snapshot
+// inconsistent cut = receive is in cut but the send that connects to the receive is not part of the snapshot.
+// cust must have event and all event that happen before that even.
+__global__ void zero_out_buffer(int *output_buffer) { // replace with cudamemset(gpu, 0, size)
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   output_buffer[index] = 0;
 }
@@ -30,7 +33,7 @@ void gpu_make_histogram(int *histogram_output, unsigned char *image_input, int i
     cudaMalloc(&gpu_histogram_output, sizeof(int) * histogram_size);
     cudaMalloc(&gpu_image_input, sizeof(unsigned char) * image_size);
 
-    cudaMemcpy(gpu_histogram_output, histogram_output, sizeof(int) * histogram_size, cudaMemcpyHostToDevice);
+    cudaMemset(gpu_histogram_output, 0, sizeof(int) * histogram_size);
     cudaMemcpy(gpu_image_input, image_input, sizeof(unsigned char) * image_size, cudaMemcpyHostToDevice);
 
 
