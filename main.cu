@@ -45,9 +45,23 @@ int main(){
 
 void run_gpu_color_test(PPM_IMG img_in)
 {
-    printf("Starting GPU processing...\n");
-    //TODO: run your GPU implementation here
-    img_in = img_in; // To avoid warning...
+  StopWatchInterface *timer=NULL;
+  printf("Starting GPU processing...\n");
+
+  PPM_IMG yuv_image_output;
+
+  sdkCreateTimer(&timer);
+  sdkStartTimer(&timer);
+
+  // perform the enhancement
+  yuv_image_output = gpu_contrast_enhancement_c_yuv(img_in);
+
+  sdkStopTimer(&timer);
+  printf("Processing time: %f (ms) for color yuv enhancement on GPU\n", sdkGetTimerValue(&timer));
+  sdkDeleteTimer(&timer);
+
+  write_ppm(yuv_image_output, "gpu_out_yuv.ppm");
+  free_ppm(yuv_image_output);
 }
 
 void run_gpu_gray_test(PGM_IMG img_in)
@@ -55,20 +69,20 @@ void run_gpu_gray_test(PGM_IMG img_in)
     StopWatchInterface *timer=NULL;
     printf("Starting GPU processing...\n");
 
-    PGM_IMG img_output_buffer;
+    PGM_IMG gray_image_output;
 
     sdkCreateTimer(&timer);
     sdkStartTimer(&timer);
 
     // perform the enhancement
-    img_output_buffer = gpu_contrast_enhancement_gray_image(img_in);
+    gray_image_output = gpu_contrast_enhancement_gray_image(img_in);
 
     sdkStopTimer(&timer);
     printf("Processing time: %f (ms) for gray enhancement on GPU\n", sdkGetTimerValue(&timer));
     sdkDeleteTimer(&timer);
 
-
-    img_in = img_in; // To avoid warning...
+    write_pgm(gray_image_output, "gpu_out.pgm");
+    free_pgm(gray_image_output);
 }
 
 void run_cpu_color_test(PPM_IMG img_in)
