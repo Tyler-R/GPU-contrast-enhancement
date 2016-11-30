@@ -27,8 +27,8 @@ PPM_IMG gpu_contrast_enhancement_c_yuv(PPM_IMG img_in) {
     int64_t image_size = yuv_temp_image.h * yuv_temp_image.w;
     unsigned char *yuv_image_buffer = (unsigned char *)malloc(image_size * sizeof(unsigned char));
 
-    histogram(histogram_buffer, yuv_temp_image.img_y, image_size, 256);
-    histogram_equalization(yuv_image_buffer, yuv_temp_image.img_y, histogram_buffer, image_size, 256);
+    gpu_make_histogram(histogram_buffer, yuv_temp_image.img_y, image_size, 256);
+    gpu_histogram_equalization(yuv_image_buffer, yuv_temp_image.img_y, histogram_buffer, image_size, 256);
 
     free(yuv_temp_image.img_y);
     yuv_temp_image.img_y = yuv_image_buffer;
@@ -38,5 +38,27 @@ PPM_IMG gpu_contrast_enhancement_c_yuv(PPM_IMG img_in) {
     free(yuv_temp_image.img_u);
     free(yuv_temp_image.img_v);
 
+    return result;
+}
+
+PPM_IMG gpu_contrast_enhancement_c_hsl(PPM_IMG img_in) {
+    PPM_IMG result;
+    int histogram_buffer[256];
+
+    HSL_IMG hsl_temp_image = gpu_rgb2hsl(img_in);
+    int64_t image_size = hsl_temp_image.width * hsl_temp_image.height;
+
+    unsigned char *hsl_image_buffer = (unsigned char *)malloc(image_size * sizeof(unsigned char));
+
+    gpu_make_histogram(histogram_buffer, hsl_temp_image.l, image_size, 256);
+    gpu_histogram_equalization(hsl_image_buffer, hsl_temp_image.l, histogram_buffer, image_size, 256);
+
+    free(hsl_temp_image.l);
+    hsl_temp_image.l = hsl_image_buffer;
+
+    result = gpu_hsl2rgb(hsl_temp_image);
+    free(hsl_temp_image.h);
+    free(hsl_temp_image.s);
+    free(hsl_temp_image.l);
     return result;
 }
