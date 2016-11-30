@@ -120,8 +120,7 @@ HSL_IMG gpu_rgb2hsl(PPM_IMG color_image_input) {
     return hsl_image_output;
 }
 
-float gpu_Hue_2_RGB( float v1, float v2, float vH )             //Function Hue_2_RGB
-{
+__device__ float gpu_Hue_2_RGB( float v1, float v2, float vH ) {
     if ( vH < 0 ) vH += 1;
     if ( vH > 1 ) vH -= 1;
     if ( ( 6 * vH ) < 1 ) return ( v1 + ( v2 - v1 ) * 6 * vH );
@@ -130,49 +129,78 @@ float gpu_Hue_2_RGB( float v1, float v2, float vH )             //Function Hue_2
     return ( v1 );
 }
 
+__global__ void convert_hsl_to_rgb( unsigned char *image_red_output, unsigned char *image_green_output, unsigned char *image_blue_output,
+                                    float *image_h_input, float *image_s_input, unsigned char *image_l_input) {
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+    float H = image_h_input[index];
+    float S = image_s_input[index];
+    float L = image_l_input[index] / 255.0f;
+    float var_1, var_2;
+
+    unsigned char r,g,b;
+
+    if ( S == 0 ) {
+        r = L * 255;
+        g = L * 255;
+        b = L * 255;
+    } else {
+
+        if ( L < 0.5 ) {
+            var_2 = L * ( 1 + S );
+        } else {
+            var_2 = ( L + S ) - ( S * L );
+        }
+
+        var_1 = 2 * L - var_2;
+        r = 255 * gpu_Hue_2_RGB(var_1, var_2, H + (1.0f/3.0f));
+        g = 255 * gpu_Hue_2_RGB(var_1, var_2, H);
+        b = 255 * gpu_Hue_2_RGB(var_1, var_2, H - (1.0f/3.0f));
+    }
+    image_red_output[index] = r;
+    image_green_output[index] = g;
+    image_blue_output[index] = b;
+
+}
+
 //Convert HSL to RGB, assume H, S in [0.0, 1.0] and L in [0, 255]
 //Output R,G,B in [0, 255]
 PPM_IMG gpu_hsl2rgb(HSL_IMG img_in) {
-    int i;
     PPM_IMG result;
 
     result.w = img_in.width;
     result.h = img_in.height;
-    result.img_r = (unsigned char *)malloc(result.w * result.h * sizeof(unsigned char));
-    result.img_g = (unsigned char *)malloc(result.w * result.h * sizeof(unsigned char));
-    result.img_b = (unsigned char *)malloc(result.w * result.h * sizeof(unsigned char));
 
-    for(i = 0; i < img_in.width*img_in.height; i ++){
-        float H = img_in.h[i];
-        float S = img_in.s[i];
-        float L = img_in.l[i]/255.0f;
-        float var_1, var_2;
+    int64_t image_size = result.w * result.h;
 
-        unsigned char r,g,b;
+    result.img_r = (unsigned char *)malloc(image_size * sizeof(unsigned char));
+    result.img_g = (unsigned char *)malloc(image_size * sizeof(unsigned char));
+    result.img_b = (unsigned char *)malloc(image_size * sizeof(unsigned char));
 
-        if ( S == 0 )
-        {
-            r = L * 255;
-            g = L * 255;
-            b = L * 255;
-        }
-        else
-        {
+    // use custom GpuMemory class to simplify the creation, deletion and copying of GPU buffers.
+    GpuMemory<float *, float> gpu_h(image_size);
+    GpuMemory<float *, float> gpu_s(image_size);
+    GpuMemory<unsigned char *, unsigned char> gpu_l(image_size);
 
-            if ( L < 0.5 )
-                var_2 = L * ( 1 + S );
-            else
-                var_2 = ( L + S ) - ( S * L );
+    GpuMemory<unsigned char *, unsigned char> gpu_red(image_size);
+    GpuMemory<unsigned char *, unsigned char> gpu_green(image_size);
+    GpuMemory<unsigned char *, unsigned char> gpu_blue(image_size);
 
-            var_1 = 2 * L - var_2;
-            r = 255 * gpu_Hue_2_RGB( var_1, var_2, H + (1.0f/3.0f) );
-            g = 255 * gpu_Hue_2_RGB( var_1, var_2, H );
-            b = 255 * gpu_Hue_2_RGB( var_1, var_2, H - (1.0f/3.0f) );
-        }
-        result.img_r[i] = r;
-        result.img_g[i] = g;
-        result.img_b[i] = b;
-    }
+    gpu_h.copyToGpuData(img_in.h, image_size);
+    gpu_s.copyToGpuData(img_in.s, image_size);
+    gpu_l.copyToGpuData(img_in.l, image_size);
+
+    int block_size = image_size / 256;
+    int number_of_threads = 256;
+    convert_hsl_to_rgb<<<block_size, number_of_threads>>>(
+        gpu_red.getArray(), gpu_green.getArray(), gpu_blue.getArray(),
+        gpu_h.getArray(), gpu_s.getArray(), gpu_l.getArray()
+    );
+
+    gpu_red.getDataFromGpu(result.img_r, image_size);
+    gpu_green.getDataFromGpu(result.img_g, image_size);
+    gpu_blue.getDataFromGpu(result.img_b, image_size);
+
 
     return result;
 }
