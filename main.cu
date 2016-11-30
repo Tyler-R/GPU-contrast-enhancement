@@ -49,6 +49,19 @@ void run_gpu_color_test(PPM_IMG img_in)
   printf("Starting GPU processing...\n");
 
   PPM_IMG yuv_image_output;
+  PPM_IMG hsl_image_output;
+
+  sdkCreateTimer(&timer);
+  sdkStartTimer(&timer);
+
+  // perform the enhancement
+  hsl_image_output = gpu_contrast_enhancement_c_hsl(img_in);
+
+  sdkStopTimer(&timer);
+  printf("Processing time: %f (ms) for color HSL enhancement on GPU\n", sdkGetTimerValue(&timer));
+  sdkDeleteTimer(&timer);
+
+
 
   sdkCreateTimer(&timer);
   sdkStartTimer(&timer);
@@ -57,11 +70,15 @@ void run_gpu_color_test(PPM_IMG img_in)
   yuv_image_output = gpu_contrast_enhancement_c_yuv(img_in);
 
   sdkStopTimer(&timer);
-  printf("Processing time: %f (ms) for color yuv enhancement on GPU\n", sdkGetTimerValue(&timer));
+  printf("Processing time: %f (ms) for color YUV enhancement on GPU\n", sdkGetTimerValue(&timer));
   sdkDeleteTimer(&timer);
 
+  write_ppm(hsl_image_output, "gpu_out_hsl.ppm");
   write_ppm(yuv_image_output, "gpu_out_yuv.ppm");
+
+  free_ppm(hsl_image_output);
   free_ppm(yuv_image_output);
+
 }
 
 void run_gpu_gray_test(PGM_IMG img_in)
@@ -164,10 +181,11 @@ PPM_IMG read_ppm(const char * path){
     }
     /*Skip the magic number*/
     fscanf(in_file, "%s", sbuf);
+
+
     fscanf(in_file, "%d",&result.w);
     fscanf(in_file, "%d",&result.h);
     fscanf(in_file, "%d\n",&v_max);
-
     printf("Image size: %d x %d\n", result.w, result.h);
 
 
