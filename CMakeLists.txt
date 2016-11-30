@@ -25,7 +25,9 @@ set(CUDASRCS
    main.cu
    histogram-equalization.cu
    contrast-enhancement.cu
-   image-conversion.cu
+   image-conversion-yuv.cu
+   image-conversion-hsl.cu
+   gpu-memory.cuh
 )
 
 CUDA_ADD_EXECUTABLE(${PROJECT_NAME} ${CUDASRCS} ${CPPSRCS})
